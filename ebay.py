@@ -9,12 +9,19 @@ import logging
 from bs4 import BeautifulSoup as bs
 import math
 import time
-
+import pyodbc
+import functools
 
 logging.basicConfig(level=logging.INFO)
 
+conn_info = 'DRIVER={SQL Server};DATABASE=B2C;SERVER=192.168.11.49;UID=sa;PWD=Oceania0488'
+connect = functools.partial(pyodbc.connect, conn_info)
+
 
 def db_update():
+    conn = connect()
+    curs - conn.cursors()
+    curs.execute('')
     pass  # todo 上传数据
 
 

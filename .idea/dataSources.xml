@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" hash="1872309225">
+    <data-source source="LOCAL" name="OceaniaERP" uuid="ec073fb6-7879-4a61-ae58-c2985d413916">
+      <driver-ref>sqlserver.ms</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</jdbc-driver>
+      <jdbc-url>jdbc:sqlserver://192.168.11.49:1433;databaseName=OceaniaERP</jdbc-url>
+    </data-source>
+  </component>
+</project>
