@@ -6,17 +6,23 @@ import re
 from StringIO import StringIO
 import gzip
 import logging
+from bs4 import BeautifulSoup as bs
+import math
+import time
+
+
+logging.basicConfig(level=logging.INFO)
+
+
+def db_update():
+    pass  # todo 上传数据
 
 
 def gethtml(url):
-    """
-    :param url:
-    :return:
-    """
-    print u'正在读取网页...'
+    logging.info(u'正在读取网页...')
     p = urllib.urlopen(url, proxies={'http': 'http://192.168.11.49:3128'})
     html = p.read()
-    print u'网页读取完成。'
+    logging.info(u'网页读取完成。')
     return html
 
 
@@ -31,24 +37,22 @@ def uncompress(html):
     return html2
 
 
-def item_sold(html):
-    """
-    :return: 销量
-    """
-    s = re.findall(r'(\d+) sold', html)
-    if s:
-        return int(s[0])
+def int_item(storename):
+    list_url = 'http://www.ebay.com/sch/m.html?_nkw=&_armrs=1&_from=&_ssn='+storename
+    html = gethtml(list_url)
+    sp = bs(html)
+    span = sp.find('span', {'class': 'rcnt'})
+    if span:
+        tmp = span.text
+        item_cnt = int(tmp.replace(',', ''))
+    return item_cnt
 
 
-def item_loacation(html):
+def list_store(keyword):
     """
-    :return:
+    :param keyword: 关键词
+    :return: 返回匹配指定关键词的店铺列表
     """
-    s = re.findall(r'', html)
-    return s
-
-
-def store_list(keyword):
     keyword_url = 'http://stores.ebay.com/_si.html?tokenstring=VFrYUAwAAAA%3D&_sofindtype=7' \
                   + '&_nkw=%s&rd=ON' % urllib.quote(keyword)
     html = gethtml(keyword_url)
@@ -63,6 +67,89 @@ def store_list(keyword):
     return r
 
 
+def list_item_bypage(storename, page_ind, ipg=200):
+    # 抓取指定页的listing
+    date = time.strftime('%Y-%m-%d')
+    itemlist = []
+    kw = {}
+    store_list_url = ('http://www.ebay.com/sch/m.html?_nkw=&_armrs=1&_from=&_ssn=%s&_pgn=%d' \
+            + '&_ipg=%d&_skc=%d&rt=nc&_sop=10') % (storename, page_ind, ipg, ipg*(page_ind-1))
+    html = gethtml(store_list_url)
+    sp = bs(html)
+    li = sp.findChildren('li',id=re.compile('item'))
+    for i in li:
+        kw['storename'] = storename
+        kw['date'] = date
+        kw['img'] = i.find('img').get('src')
+        kw['listingid'] = i.get('listingid')
+        kw['url'] = i.find('a').get('href')
+        kw['title'] = i.find('h3').text
+        sold = re.findall('(\d+) sold', i.text)
+        if sold:
+            kw['sold'] = sold[0]
+        else:
+            kw['sold'] = ''
+        kw['ourl'] = store_list_url
+        is_bids = re.findall('bids', i.text)
+        if is_bids:
+            kw['isBids'] = 1
+        else:
+            kw['isBids'] = 0
+        kw['category'] = ''
+        kw['creatingDate'] = ''
+        itemlist.append(kw)
+    return itemlist
+
+
+def list_item(storename):
+    ipg = 200
+    itemlist = []
+    item_cnt = int_item(storename)
+    page_cnt = int(math.ceil(1.0*item_cnt/ipg))
+    for i in range(1, page_cnt+1):
+        logging.info(u'  正在出来第'+str(i)+u'个目录页...')
+        tmp_list = list_item_bypage(storename, i)
+        itemlist += tmp_list
+    return itemlist
+
+
+def item_price(x, inputtype='itemID'):
+    if inputtype == 'itemID':
+        html = gethtml('http://www.ebay.com/itm/'+x)
+    else:
+        html = x
+    s = re.findall(r'itemprop="price"  style="">(.*?)</span>', html)  # 匹配价格
+    if s:
+        return s[0]
+
+
+def item_sold(x, inputtype='itemID'):
+    """
+    :param x: itemID 或者 网页源码
+    :param inputtype: 指定x是itemID还是网页源码
+    :return: 解析出的销售量
+    """
+    if inputtype == 'itemID':
+        html = gethtml('http://www.ebay.com/itm/'+x)
+    else:
+        html = x
+    s = re.findall(r'(\d+) sold', html)
+
+    if s:
+        return int(s[0])
+    else:
+        return 0
+
+
+def item_location(html):
+    """
+    :return: item的发货地址
+    """
+    s = re.findall(r'<div class="iti-eu-bld-gry ">(.*?)</div>', html)
+    if s:
+        return s[0]
+
+
 def store_feedback(storename):
     _store_url = 'http://stores.ebay.com/%s' % storename
     raw = gethtml(_store_url)
@@ -71,7 +158,7 @@ def store_feedback(storename):
     except IOError:
         html = raw
     finally:
-        print u'网页下载完成。'
+        logging.info(u'网页下载完成。')
 
     feedback_score1 = re.findall('feedback score is (\d+)', html)
     feedback_score2 = re.findall('Feedback Score Of (\d+)', html)
@@ -89,13 +176,6 @@ def store_feedback(storename):
     return score, rate
 
 
-# url = 'http://www.ebay.com/itm/281589160700'
-# html = gethtml(url)
-# s = parse_sold(html)
-
-# 解析某一关键词的匹配卖家列表
-#_url = 'http://stores.ebay.com/_si.html?tokenstring=VFrYUAwAAAA%3D&_sofindtype=7&_nkw=hand+dryer&rd=ON'
-# STORES = store_list(_url)
 
 
 
